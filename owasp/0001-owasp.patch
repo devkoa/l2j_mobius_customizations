@@ -1,0 +1,150 @@
+From cf00c6915b18dd695ff7641e149175a083e91fc3 Mon Sep 17 00:00:00 2001
+From: devkoa <76437982+devkoa@users.noreply.github.com>
+Date: Sun, 13 Mar 2022 17:01:38 +0100
+Subject: [PATCH] owasp
+
+---
+ L2J_Mobius_CT_2.6_HighFive/.gitignore      |  1 +
+ L2J_Mobius_CT_2.6_HighFive/build.xml       | 56 +++++++++++++++++++---
+ L2J_Mobius_CT_2.6_HighFive/suppression.xml | 10 ++++
+ 3 files changed, 60 insertions(+), 7 deletions(-)
+ create mode 100644 L2J_Mobius_CT_2.6_HighFive/.gitignore
+ create mode 100644 L2J_Mobius_CT_2.6_HighFive/suppression.xml
+
+diff --git a/L2J_Mobius_CT_2.6_HighFive/.gitignore b/L2J_Mobius_CT_2.6_HighFive/.gitignore
+new file mode 100644
+index 0000000000..d6ca47d233
+--- /dev/null
++++ b/L2J_Mobius_CT_2.6_HighFive/.gitignore
+@@ -0,0 +1 @@
++report-owasp/
+diff --git a/L2J_Mobius_CT_2.6_HighFive/build.xml b/L2J_Mobius_CT_2.6_HighFive/build.xml
+index b42c28317f..c8e2d87de4 100644
+--- a/L2J_Mobius_CT_2.6_HighFive/build.xml
++++ b/L2J_Mobius_CT_2.6_HighFive/build.xml
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <!DOCTYPE xml>
+-<project name="L2J_Mobius_CT_2.6_HighFive" default="cleanup" basedir=".">
++<project name="L2J_Mobius_CT_2.6_HighFive" default="build" basedir=".">
+ 	<description>
+ 		This file is part of the L2J Mobius project.
+ 		
+@@ -18,7 +18,7 @@
+ 		along with this program. If not, see [http://www.gnu.org/licenses/].
+ 	</description>
+ 
+-	<property name="build" location="../build" />
++	<property name="build" location="build" />
+ 	<property name="build.bin" location="${build}/bin" />
+ 	<property name="build.dist" location="${build}/dist" />
+ 	<property name="build.dist.libs" location="${build.dist}/libs" />
+@@ -26,6 +26,22 @@
+ 	<property name="datapack" location="dist" />
+ 	<property name="libs" location="${datapack}/libs" />
+ 	<property name="src" location="java" />
++	<property name="OWASP_BASE" location="${basedir}/report-owasp" />
++	<tstamp>
++		<format property="CURRENT_TIMESTAMP" pattern="yyyy-MM-dd"  locale="en,UK" />
++	</tstamp>
++	<property name="REPORT_DIR" location="${OWASP_BASE}/${CURRENT_TIMESTAMP}" />
++	
++	<property name="dependency-check.home" value="V:/dependency-check-ant"/>
++	<path id="dependency-check.path">
++	   <pathelement location="${dependency-check.home}/dependency-check-ant.jar"/>
++		<fileset dir="${dependency-check.home}/lib">
++			<include name="*.jar"/>
++		</fileset>
++	</path>
++	<taskdef resource="dependency-check-taskdefs.properties">
++	   <classpath refid="dependency-check.path" />
++	</taskdef>
+ 
+ 	<path id="classpath">
+ 		<fileset dir="${libs}">
+@@ -43,6 +59,31 @@
+ 			</chainedmapper>
+ 		</mapper>
+ 	</pathconvert>
++	
++	<target name="dependency-check-purge" description="Dependency-Check purge">
++		<dependency-check-purge />
++	</target>
++	
++	<target name="dependency-check-update" depends="dependency-check-purge" description="Dependency-Check Update">
++		<dependency-check-update />
++	</target>
++	
++	<target name="owasp" depends="dependency-check-update" description="Dependency-Check Analysis">
++		<delete dir="${REPORT_DIR}" quiet="true" />
++		<mkdir dir="${REPORT_DIR}" />
++		<dependency-check projectname="L2J_Mobius_CT_2.6_HighFive"
++						  reportoutputdirectory="${REPORT_DIR}"
++						  reportformat="HTML"
++						  centralAnalyzerUseCache="false"
++						  nodeAuditAnalyzerUseCache="false"
++						  failBuildOnCVSS="7">
++			<suppressionfile path="${basedir}/suppression.xml" />
++			<retirejsFilter regex="copyright.*jeremy long" />
++			<fileset dir="dist/libs">
++				<include name="**/*.jar"/>
++			</fileset>
++		</dependency-check>
++	</target>
+ 
+ 	<target name="checkRequirements" description="Check Requirements.">
+ 		<fail message="Ant 1.8.2 is required. But your version is ${ant.version} and if you are using Eclipse probably is outdated.">
+@@ -57,7 +98,7 @@
+ 	</target>
+ 
+ 	<target name="init" depends="checkRequirements" description="Create the output directories.">
+-		<delete dir="${build.bin}" quiet="true" />
++		<delete dir="${build}" quiet="true" />
+ 		<mkdir dir="${build.bin}" />
+ 	</target>
+ 
+@@ -134,18 +175,19 @@
+ 	</target>
+ 
+ 	<target name="adding-core" depends="jar" description="Adding the compiled jars to the Zip file.">
+-		<zip destfile="${build}/L2J_Mobius_CT_2.6_HighFive.zip" basedir="${build.dist}" level="9" />
++		<zip destfile="${build}/L2J_Mobius_CT_2.6_HighFive.zip" basedir="${build.dist}" level="9" zip64Mode="always" />
+ 	</target>
+ 
+ 	<target name="adding-datapack" depends="adding-core" description="Updating the Zip file with datapack content.">
+-		<zip destfile="${build}/L2J_Mobius_CT_2.6_HighFive.zip" basedir="${datapack}" excludes="**/*-sources.jar" update="true" level="9" />
++		<zip destfile="${build}/L2J_Mobius_CT_2.6_HighFive.zip" basedir="${datapack}" excludes="**/*-sources.jar" update="true" level="9" zip64Mode="always" />
+ 	</target>
+ 
+ 	<target name="adding-readme" depends="adding-datapack" description="Adding readme.txt to the Zip file.">
+-		<zip destfile="${build}/L2J_Mobius_CT_2.6_HighFive.zip" basedir="." includes="readme.txt" update="true" level="9" />
++		<zip destfile="${build}/L2J_Mobius_CT_2.6_HighFive.zip" basedir="." includes="readme.txt" update="true" level="9" zip64Mode="always" />
+ 	</target>
+ 
+-	<target name="cleanup" depends="adding-readme" description="Cleaning the build folder.">
++	<target name="build" depends="adding-readme" description="Cleaning the build folder.">
++		<delete dir="${build.bin}" />
+ 		<delete dir="${build.dist}" />
+ 	</target>
+ </project>
+\ No newline at end of file
+diff --git a/L2J_Mobius_CT_2.6_HighFive/suppression.xml b/L2J_Mobius_CT_2.6_HighFive/suppression.xml
+new file mode 100644
+index 0000000000..29adb709f4
+--- /dev/null
++++ b/L2J_Mobius_CT_2.6_HighFive/suppression.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
++	<suppress>
++		<notes><![CDATA[Vulnerabilities on mariadb-java-client.]]></notes>
++		<cve>CVE-2020-28912</cve>
++		<cve>CVE-2021-46669</cve>
++		<cve>CVE-2021-46666</cve>
++		<cve>CVE-2021-46667</cve>
++	</suppress>
++</suppressions>
+\ No newline at end of file
+-- 
+2.35.1.windows.2
+
